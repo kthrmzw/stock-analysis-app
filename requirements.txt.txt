@@ -1,0 +1,6 @@
+streamlit
+pandas
+yfinance
+matplotlib
+japanize-matplotlib
+xlrd
