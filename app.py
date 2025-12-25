@@ -102,10 +102,10 @@ if "df_data" in st.session_state:
 
         st.dataframe(
             df_display.style.format({
-                "PER(予/倍)": "{:.2f}",
-                "PBR(倍)": "{:.2f}",
-                "ROE(%)": "{:.1f}",
-                "配当利回り(%)": "{:.2f}",
+                "PER(予/倍)": lambda x: "{:.2f}".format(x) if x is not None else "-",
+                "PBR(倍)": lambda x: "{:.2f}".format(x) if x is not None else "-",
+                "ROE(%)": lambda x: "{:.1f}".format(x) if x is not None else "-",
+                "配当利回り(%)": lambda x: "{:.2f}".format(x) if x is not None else "-",
                 "時価総額": "{:,.0f}"
             })
         )
@@ -156,8 +156,30 @@ if "df_data" in st.session_state:
 
                 #裏方の関数でグラフ描画
                 stock_utils.visualize_performance(df_performance, selected_name)
-
                 st.info("解説: 青い棒グラフｇ「売上(ビジネスの規模)」、オレンジの線が「利益(手元に残るお金)」です。両方とも右肩上がりが理想です")
+                
+                st.divider()#区切り線
+                st.subheader(f"{selected_name}の株価チャート(Plotly)")
+                #1.裏方に「過去データ取得の依頼」
+                df_history = stock_utils.fetch_stock_history(selected_code)
+
+                st.write(df_history.head())
+
+                if not df_history.empty:
+                    short_span = st.sidebar.slider('短期線の周期を選択してください', 5, 50, 5, 5)
+                    long_span = st.sidebar.slider('長期線の周期を選択してください', 50, 200, 50, 25)
+                    show_bollinger = st.sidebar.checkbox('ボリンジャーバンドを表示する', value=True)
+
+                    #2.裏方に「plotly図の作成」を依頼
+                    fig = stock_utils.plot_stock_plotly(df_history, selected_name, short_span, long_span, show_bollinger)
+                    #3.画面に表示
+                    st.plotly_chart(fig, use_container_width=True)
+                    #4.出来高グラフを追加
+                    st.subheader("出来高推移")
+                    fig_vol = stock_utils.plot_volume_plotly(df_history, selected_name)
+                    st.plotly_chart(fig_vol, use_container_width=True)
+                else:
+                    st.warning("株価データが取得できませんでした")
             else:
                 st.warning("決算データが取得できませんでした(ETFや直近上場企業の可能性があります)")
     

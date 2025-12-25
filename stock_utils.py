@@ -3,6 +3,7 @@ import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 import japanize_matplotlib
+import plotly.graph_objects as go
 import matplotlib.ticker as ticker
 import os
 
@@ -219,3 +220,119 @@ def visualize_performance(df_performance, company_name):
     ax1.grid(axis='y', linestyle='--', alpha=0.5)
 
     st.pyplot(fig)
+
+# 1. 過去の株価データを取得する関数
+def fetch_stock_history(ticker):
+    select_period = st.sidebar.selectbox('期間を選択してください', ['1年', '6ヶ月', '3ヶ月', '1ヶ月'])
+    #期間のデフォルト設定
+    period = '1y'
+
+    if select_period == '1年':
+        period = '1y'
+    elif select_period == '6ヶ月':
+        period = '6mo'
+    elif select_period == '3ヶ月':
+        period = '3mo'
+    elif select_period == '1ヶ月':
+        period = '1mo'
+    # 期間を1年分、日足データを取得
+    df_history = yf.download(ticker, period=period, interval="1d", progress=False)
+    # 列名の整理（MultiIndex対策）
+    if isinstance(df_history.columns, pd.MultiIndex):
+        df_history.columns = df_history.columns.droplevel(1)
+    return df_history
+
+# 2. Plotlyでグラフを描く関数
+def plot_stock_plotly(df_history, company_name, short_span, long_span, show_bollinger):
+    #日線を算定
+    df_history['SMAshort'] = df_history['Close'].rolling(window=short_span).mean()
+    df_history['SMAlong'] = df_history['Close'].rolling(window=long_span).mean()
+    
+    #標準偏差を計算
+    df_history['std'] = df_history['Close'].rolling(window=short_span).std()
+
+    #バンドの計算
+    df_history['upper'] = df_history['SMAshort'] + (2 * df_history['std'])
+    df_history['lower'] = df_history['SMAshort'] - (2 * df_history['std'])
+
+    fig = go.Figure()
+
+    # 終値の折れ線グラフを追加
+    fig.add_trace(go.Candlestick(
+        x=df_history.index,
+        open=df_history['Open'],
+        high=df_history['High'],
+        low=df_history['Low'],
+        close=df_history['Close'],
+    ))
+
+    #短日線(オレンジ色)
+    fig.add_trace(go.Scatter(
+        x=df_history.index,
+        y=df_history['SMAshort'],
+        mode='lines',
+        name=f'{short_span}日移動平均',
+        line=dict(color='orange', width=1)
+    ))
+
+    #長日線(青色)
+    fig.add_trace(go.Scatter(
+        x=df_history.index,
+        y=df_history['SMAlong'],
+        mode='lines',
+        name=f'{long_span}日移動平均',
+        line=dict(color='royalblue', width=1)
+    ))
+
+    if show_bollinger:
+        #ボリンジャーバンド(upper)
+        fig.add_trace(go.Scatter(
+            x=df_history.index,
+            y=df_history['upper'],
+            mode='lines',
+            name='ボリンジャーバンド(upper+2σ)',
+            line=dict(color='gray', width=1, dash='dash')
+        ))
+
+        #ボリンジャーバンド(lower)
+        fig.add_trace(go.Scatter(
+            x=df_history.index,
+            y=df_history['lower'],
+            mode='lines',
+            name='ボリンジャーバンド(lower-2σ)',
+            line=dict(color='gray', width=1, dash='dash')
+        ))
+
+    # レイアウト設定
+    fig.update_layout(
+        title=f"{company_name} の株価推移",
+        xaxis_title="日付",
+        yaxis_title="株価 (円)",
+        height=500, # グラフの高さ
+        template="plotly_white",
+        xaxis_rangeslider_visible=False #スライダー非表示
+    )
+    return fig
+
+# 3. Plotlyでグラフを描く関数_出来高の棒グラフ
+def plot_volume_plotly(df_history, company_name):  
+    fig = go.Figure()
+
+    # 出来高の棒グラフを追加
+    fig.add_trace(go.Bar(
+        x=df_history.index,
+        y=df_history['Volume'],
+        marker_color="royalblue",
+        opacity=0.6,
+        name="出来高"
+        ))
+
+    # レイアウト設定
+    fig.update_layout(
+        title=f"{company_name} の出来高 (過去1年)",
+        xaxis_title="日付",
+        yaxis_title="出来高 (円)",
+        height=300, # グラフの高さ
+        template="plotly_white"
+    )
+    return fig

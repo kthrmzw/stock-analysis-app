@@ -4,3 +4,4 @@ yfinance
 matplotlib
 japanize-matplotlib
 xlrd
+plotly
