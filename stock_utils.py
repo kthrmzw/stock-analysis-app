@@ -70,9 +70,9 @@ def fetch_financial_metrics(tickers: list[str], name_map: dict = None) -> pd.Dat
             if name_map and code in name_map:
                 company_name = name_map[code]
             if company_name is None:
-                company_name = info.get("longName")
-            if company_name is None:
                 company_name = info.get("shortName")
+            if company_name is None:
+                company_name = info.get("longName")
             if company_name is None:
                 company_name = "不明"
 
@@ -222,19 +222,28 @@ def visualize_performance(df_performance, company_name):
     st.pyplot(fig)
 
 # 1. 過去の株価データを取得する関数
-def fetch_stock_history(ticker):
-    select_period = st.sidebar.selectbox('期間を選択してください', ['1年', '6ヶ月', '3ヶ月', '1ヶ月'])
-    #期間のデフォルト設定
-    period = '1y'
+def fetch_stock_history(ticker, period=None):
 
-    if select_period == '1年':
+    #もし期間が指定されていなければ(=1回目の呼び出し)、サイドバーを表示してユーザーに選ばせる
+    if period is None:
+        select_period = st.sidebar.selectbox('期間を選択してください', ['1年', '6ヶ月', '3ヶ月', '1ヶ月'])
+        #期間のデフォルト設定
         period = '1y'
-    elif select_period == '6ヶ月':
-        period = '6mo'
-    elif select_period == '3ヶ月':
-        period = '3mo'
-    elif select_period == '1ヶ月':
-        period = '1mo'
+
+        if select_period == '1年':
+            period = '1y'
+        elif select_period == '6ヶ月':
+            period = '6mo'
+        elif select_period == '3ヶ月':
+            period = '3mo'
+        elif select_period == '1ヶ月':
+            period = '1mo'
+        #選ばれた期間を「記憶」しておく
+        st.session_state['selected_period_code'] = period
+    else:
+        #期間指定されていれば、その期間を使う
+        pass
+
     # 期間を1年分、日足データを取得
     df_history = yf.download(ticker, period=period, interval="1d", progress=False)
     # 列名の整理（MultiIndex対策）
@@ -257,7 +266,7 @@ def plot_stock_plotly(df_history, company_name, short_span, long_span, show_boll
 
     fig = go.Figure()
 
-    # 終値の折れ線グラフを追加
+    # 終値のローソク足を追加
     fig.add_trace(go.Candlestick(
         x=df_history.index,
         open=df_history['Open'],
@@ -329,10 +338,85 @@ def plot_volume_plotly(df_history, company_name):
 
     # レイアウト設定
     fig.update_layout(
-        title=f"{company_name} の出来高 (過去1年)",
+        title=f"{company_name} の出来高",
         xaxis_title="日付",
         yaxis_title="出来高 (円)",
         height=300, # グラフの高さ
+        template="plotly_white"
+    )
+    return fig
+
+# 4. Plotlyでグラフを描く関数_RSIの折れ線グラフ
+def plot_RSI_plotly(df_history, company_name):  
+    rsi_period = 14
+
+    #RSI計算
+    delta = df_history['Close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    #単純平均(SMA)を使ったRSI計算
+    avg_gain = gain.rolling(window=rsi_period).mean()
+    avg_loss = loss.rolling(window=rsi_period).mean()
+    rs = avg_gain / avg_loss
+    df_history['RSI'] = 100 - (100 / (1 + rs))
+
+    fig = go.Figure()
+
+    # RSIの棒グラフを追加
+    fig.add_trace(go.Scatter(
+        x=df_history.index,
+        y=df_history['RSI'],
+        mode='lines',
+        name="RSI(14日)",
+        line=dict(color='purple', width=1.5)
+        ))
+    #基準線
+    fig.add_hline(y=30, line_dash="dash", line_color="gray", annotation_text="売られすぎ(30)")
+    fig.add_hline(y=70, line_dash="dash", line_color="gray", annotation_text="買われすぎ(70)")
+
+    # レイアウト設定
+    fig.update_layout(
+        title=f"{company_name} のRSI",
+        xaxis_title="日付",
+        yaxis_title="RSI(%)",
+        height=300, 
+        yaxis=dict(range=[0, 100]),
+        template="plotly_white"
+    )
+    return fig
+
+#5.日経平均との比較
+def plot_comparison_plotly(df_stock, df_benchmark, company_name):
+    # 例: 最初の日の終値(iloc[0])で、列全体を割る
+    df_stock['Normalized'] = (df_stock['Close'] / df_stock['Close'].iloc[0] - 1) * 100
+    df_benchmark['Normalized'] = (df_benchmark['Close'] / df_benchmark['Close'].iloc[0] - 1) * 100
+
+    fig = go.Figure()
+
+    #銘柄の株価変化率
+    fig.add_trace(go.Scatter(
+        x=df_stock.index,
+        y=df_stock['Normalized'],
+        mode='lines',
+        name=f'{company_name}の株価変化率',
+        line=dict(color='red', width=1)
+    ))
+
+    #日経平均の変化率
+    fig.add_trace(go.Scatter(
+        x=df_benchmark.index,
+        y=df_benchmark['Normalized'],
+        mode='lines',
+        name='日経平均の株価変化率',
+        line=dict(color='gray', width=1)
+    ))
+
+    # レイアウト設定
+    fig.update_layout(
+        title=f"{company_name} と日経平均の変化率比較",
+        xaxis_title="日付",
+        yaxis_title="変化率(%)",
+        height=300, 
         template="plotly_white"
     )
     return fig

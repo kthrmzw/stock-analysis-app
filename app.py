@@ -166,9 +166,10 @@ if "df_data" in st.session_state:
                 st.write(df_history.head())
 
                 if not df_history.empty:
-                    short_span = st.sidebar.slider('短期線の周期を選択してください', 5, 50, 5, 5)
-                    long_span = st.sidebar.slider('長期線の周期を選択してください', 50, 200, 50, 25)
-                    show_bollinger = st.sidebar.checkbox('ボリンジャーバンドを表示する', value=True)
+                    with st.sidebar.expander("チャート表示設定", expanded=True):
+                        short_span = st.slider('短期線の周期を選択してください', 5, 50, 5, 5)
+                        long_span = st.slider('長期線の周期を選択してください', 50, 200, 50, 25)
+                        show_bollinger = st.checkbox('ボリンジャーバンドを表示する', value=True)
 
                     #2.裏方に「plotly図の作成」を依頼
                     fig = stock_utils.plot_stock_plotly(df_history, selected_name, short_span, long_span, show_bollinger)
@@ -178,6 +179,19 @@ if "df_data" in st.session_state:
                     st.subheader("出来高推移")
                     fig_vol = stock_utils.plot_volume_plotly(df_history, selected_name)
                     st.plotly_chart(fig_vol, use_container_width=True)
+                    #5.RSIグラフを追加
+                    st.subheader("RSI")
+                    fig_rsi = stock_utils.plot_RSI_plotly(df_history, selected_name)
+                    st.plotly_chart(fig_rsi, use_container_width=True)
+                    #6.銘柄と日経平均の変化率比較
+                    st.subheader("日経平均との変化率比較")
+                    current_period = st.session_state.get('selected_period_code', '1y')
+                    df_benchmark = stock_utils.fetch_stock_history('^N225', period=current_period)
+                    if not df_benchmark.empty:
+                        fig_comparison = stock_utils.plot_comparison_plotly(df_history, df_benchmark, selected_name)
+                        st.plotly_chart(fig_comparison, use_container_width=True)
+                    else:
+                        st.warning("日経平均データが取得できませんでした")
                 else:
                     st.warning("株価データが取得できませんでした")
             else:
