@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import stock_utils  # ★作成した裏方ファイルを読み込む！
+import stock_app.stock_utils as stock_utils  # ★作成した裏方ファイルを読み込む！
 
 # ==========================================
 #  アプリの画面処理 (UI)
