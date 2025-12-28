@@ -348,6 +348,7 @@ def plot_volume_plotly(df_history, company_name):
 
 # 4. Plotlyでグラフを描く関数_RSIの折れ線グラフ
 def plot_RSI_plotly(df_history, company_name):  
+    #業界スタンダードの14日平均を設定
     rsi_period = 14
 
     #RSI計算
@@ -387,7 +388,7 @@ def plot_RSI_plotly(df_history, company_name):
 
 #5.日経平均との比較
 def plot_comparison_plotly(df_stock, df_benchmark, company_name):
-    # 例: 最初の日の終値(iloc[0])で、列全体を割る
+    # 例: 最初の日の終値(iloc[0])で、列全体を割る、100倍して％表示に対応
     df_stock['Normalized'] = (df_stock['Close'] / df_stock['Close'].iloc[0] - 1) * 100
     df_benchmark['Normalized'] = (df_benchmark['Close'] / df_benchmark['Close'].iloc[0] - 1) * 100
 
