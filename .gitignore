@@ -4,3 +4,4 @@
 __pycache__/
 # 分析結果のCSVなどはアップしない（ダウンロードできるので）
 *.csv
+service_account.json
